@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+}
+
+group = 'cn.xiaozhou233.injector'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('generateHeaders') {
+    group = 'build'
+    description = 'Generate JNI header files using javac -h'
+    def headerDir = layout.buildDirectory.dir('generated/sources/headers/java/main')
+    def libsDir = layout.buildDirectory.dir('libs')
+    doLast {
+        def outDir = headerDir.get().asFile
+        outDir.mkdirs()
+        def javaFiles = sourceSets.main.allJava.files
+        def classpath = sourceSets.main.compileClasspath.asPath
+        println "Generating headers into ${outDir}"
+        exec {
+            commandLine 'javac'
+            args '-h'
+            args outDir.toString()
+            args '-cp'
+            args classpath
+            args javaFiles*.path
+        }
+        def target = libsDir.get().asFile
+        target.mkdirs()
+        outDir.eachFile { f ->
+            def dest = new File(target, f.name)
+            f.renameTo(dest)
+            println "Header -> ${dest}"
+        }
+    }
+}
+
+tasks.named('compileJava') {
+    finalizedBy 'generateHeaders'
+}
+
+tasks.named('build') {
+    dependsOn 'generateHeaders'
+}
